@@ -16,7 +16,7 @@ from torch.nn import functional as F
 from utils import weights_init_G
 from utils import weights_init_D
 
-def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer_D2,
+def run_stage2_trainer(train_loader, G2, D2, D2_4x4, optimizer_G2, optimizer_D2,
                        optimizer_D2_4x4, args):
 
     batch_size = args.batchSize
@@ -25,8 +25,6 @@ def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer
     fake_label = 0
 
     device = torch.device("cuda:0" if args.cuda else "cpu")
-
-    G1 = torch.load('./G1_model.pt')
 
     if args.restart == '':
         G2.apply(weights_init_G)
@@ -41,22 +39,28 @@ def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer
 
     criterion_BCE = nn.BCELoss()
     criterion_MSE = nn.MSELoss()
+    criterion_L1 = nn.L1Loss()
+
+    width = args.Stage2imageSize 
+    height = args.Stage2imageSize
+    channels = args.nc
 
     if args.cuda:
         criterion_BCE = criterion_BCE.cuda()
         criterion_MSE = criterion_MSE.cuda()
-
-    #freeze G1 just in case    
-    for p in G1.parameters():
-        p.requires_grad = False
+        criterion_L1 = criterion_L1.cuda()
 
     for epoch in range(100):
-        for i, (images, labels) in enumerate(train_loader):
+        for i, (src, tgt) in enumerate(train_loader):
             if i==16000:
                 break
 
-            images = Variable(images)
-            images = images.cuda()
+            src = Variable(src)
+            src = src.cuda()
+
+            tgt = Variable(tgt)
+            tgt = tgt.cuda()
+            
             label = torch.full((batch_size,), real_label, device=device)
             label_4x4 = torch.full((batch_size,4,4), real_label, device=device)
 
@@ -68,28 +72,39 @@ def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer
 
             G2.zero_grad()
 
-            z = torch.FloatTensor(args.batchSize, args.nz).normal_(0,1)
+            #z = torch.FloatTensor(args.batchSize, args.nz).normal_(0,1)
 
-            if args.cuda:
-                z = z.cuda()
+            #if args.cuda:
+            #    z = z.cuda()
             
-            z = Variable(z)
-            fake1 = G1(z)
-            
-            fake2 = G2(fake1)
-            D2_fake = D2(fake2)
-            D2_4x4_fake = D2_4x4(fake2)
+            #z = Variable(z)
+            #fake1 = G1(z)
+
+            fake = G2(src)
+            D2_fake = D2(fake)
+            D2_4x4_fake = D2_4x4(fake)
+
+
+            #Supervised (L1) loss
+            L1_loss = 0.5*criterion_L1(fake, tgt)
+            #L1_loss *= 1.0
+            L1_loss.backward(retain_graph=True)
 
             #fill with label '1'
             label.fill_(real_label)
             label_4x4.fill_(real_label)
-           
+            
+            #Global Adversarial Loss
             #G2_loss = criterion_BCE(D2_fake, label)
             G2_loss = criterion_MSE(D2_fake, label)
+            G2_loss *= 0.025
             G2_loss.backward(retain_graph=True)
 
+            #Patch Adversarial Loss
             #G2_loss_4x4 = criterion_BCE(D2_4x4_fake, label_4x4)
             G2_loss_4x4 = criterion_MSE(D2_4x4_fake, label_4x4)
+            G2_loss_4x4 *= 0.025
+            #G2_loss_4x4 = 0.025*criterion_MSE(D2_4x4_fake, label_4x4)
             G2_loss_4x4.backward()
             
             optimizer_G2.step()
@@ -105,41 +120,42 @@ def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer
             D2_4x4.zero_grad()
             
             #real 
-            D2_real = D2(images)
+            D2_real = D2(tgt)
             label.fill_(real_label)
 
             #D2_loss_real = criterion_BCE(D2_real, label)
             D2_loss_real = criterion_MSE(D2_real, label)
             D2_loss_real.backward(retain_graph=True)
 
-            D2_4x4_real = D2_4x4(images)
+            D2_4x4_real = D2_4x4(tgt)
             label_4x4.fill_(real_label)
             #D2_loss_4x4_real = criterion_BCE(D2_4x4_real, label_4x4)
             D2_loss_4x4_real = criterion_MSE(D2_4x4_real, label_4x4)
             D2_loss_4x4_real.backward()
 
+            #Disregard z's
             #D2(G2(G1(z))) - fake
-            z = torch.FloatTensor(args.batchSize, args.nz).normal_(0,1)
-
-            if args.cuda:
-                z = z.cuda()
+            #z = torch.FloatTensor(args.batchSize, args.nz).normal_(0,1)
             
-            z = Variable(z)
+            #if args.cuda:
+            #    z = z.cuda()
             
-            fake1 = G1(z)
+            #z = Variable(z)
+            
+            #fake1 = G1(z)
 
-            fake2 = G2(fake1)
-            D_fake2 = D2(fake2.detach())
+            fake = G2(src)
+            D_fake = D2(fake.detach())
             label.fill_(fake_label)
 
-            #D2_loss_fake = criterion_BCE(D_fake2, label)
-            D2_loss_fake = criterion_MSE(D_fake2, label)
+            #D2_loss_fake = criterion_BCE(D_fake, label)
+            D2_loss_fake = criterion_MSE(D_fake, label)
             D2_loss_fake.backward(retain_graph=True)
 
-            D_fake2_4x4 = D2_4x4(fake2.detach())
+            D_fake_4x4 = D2_4x4(fake.detach())
             label_4x4.fill_(fake_label)
-            #D2_loss_4x4_fake = criterion_BCE(D_fake2_4x4, label_4x4)
-            D2_loss_4x4_fake = criterion_MSE(D_fake2_4x4, label_4x4)
+            #D2_loss_4x4_fake = criterion_BCE(D_fake_4x4, label_4x4)
+            D2_loss_4x4_fake = criterion_MSE(D_fake_4x4, label_4x4)
             D2_loss_4x4_fake.backward()
 
             optimizer_D2.step()
@@ -147,17 +163,18 @@ def run_stage2_trainer(train_loader, G1, G2, D2, D2_4x4, optimizer_G2, optimizer
 
             if i %100 == 0:
                 print('saving images for batch', i)
-                save_image(fake1.squeeze().data.cpu().detach(), 'fake1_2.png')
-                save_image(fake2.squeeze().data.cpu().detach(), './fake2.png')
-                save_image(images.data.cpu().detach(), './real2.png')
+                save_image(src.squeeze().data.cpu().detach(), 'source.png')
+                save_image(tgt.squeeze().data.cpu().detach(), 'target.png')
+                save_image(fake.squeeze().data.cpu().detach(), 'fake.png')
 
             if i % 100 == 0:
                 torch.save(G2, './G2_model.pt')
                 torch.save(D2, './D2_model.pt')
+                torch.save(D2_4x4, './D2_4x4_model.pt')
                 
-                print('%d [%d/%d] Loss G %.4f Loss D (real/fake/fake4x4) [%.4f/%.4f/%.4f]'%
-                      (epoch, i, len(train_loader), 
-                       G2_loss, D2_loss_real, D2_loss_fake, D2_loss_4x4_fake))
+                print('%d [%d/%d] G Loss [L1/GAdv/PAdv] [%.4f/%.4f/%.4f] Loss D (real/fake/fake4x4) [%.4f/%.4f/%.4f]'%
+                      (epoch, i, len(train_loader), L1_loss,
+                       G2_loss, G2_loss_4x4, D2_loss_real, D2_loss_fake, D2_loss_4x4_fake))
 
 
                 

@@ -75,7 +75,7 @@ class convBlock(nn.Module):
         model = []
         model += [nn.Conv2d(inplanes, outplanes, kernel, stride, padding, bias=False)]
         model += [nn.BatchNorm2d(outplanes)]
-        model += [nn.ReLU(inplace=True)]
+        model += [nn.LeakyReLU(0.2, inplace=True)]
 
         self.model = nn.Sequential(*model)
 

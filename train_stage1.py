@@ -37,7 +37,7 @@ def run_stage1_trainer(train_loader, G1, D1, optimizer_G1, optimizer_D1, G1_sche
     criterion_BCE = nn.BCELoss()
 
     if args.cuda:
-        criterion_mSE = criterion_MSE.cuda()
+        criterion_BCE = criterion_BCE.cuda()
 
     for epoch in range(100):
         for i, (images, labels) in enumerate(train_loader):
