@@ -75,7 +75,7 @@ class convBlock(nn.Module):
         model = []
         model += [nn.Conv2d(inplanes, outplanes, kernel, stride, padding, bias=False)]
         model += [nn.BatchNorm2d(outplanes)]
-        model += [nn.LeakyReLU(0.2, inplace=True)]
+        model += [nn.ReLU(inplace=True)]
 
         self.model = nn.Sequential(*model)
 
@@ -166,14 +166,27 @@ class G_Stage2(nn.Module):
         #(ndf,32,32)
         encoder += [convBlock(ngf, 2 * ngf, 4, 2, 1)]
 
+
+        #(2 * ngf, 16, 16)
+        #for i in range(4):
+        #    encoder += [ResnetBlockBasic(2 * ngf, 2 * ngf)]
+
         #(2 * ndf,16,16)
         encoder += [convBlock(2 * ngf, 4 * ngf, 4, 2, 1)]
 
         #(4*ndf, 8, 8)
-        encoder += [convBlock(4 * ngf, 8 * ngf, 4, 2, 1)]
+        for i in range(6):
+            encoder += [ResnetBlockBasic(ngf * 4, ngf * 4)]
+
+        #(4*ndf, 8, 8)
+        #encoder += [convBlock(4 * ngf, 8 * ngf, 4, 2, 1)]
+
+        #for i in range(3):
+        #    encoder += [ResnetBlockBasic(ngf * 8, ngf * 8)]
 
         #(8 * ndf, 4, 4)
-        encoder += [nn.Conv2d(8 * ngf, 8 * ngf, 4, 1, 0, bias=False)]
+        #encoder += [nn.Conv2d(8 * ngf, 8 * ngf, 4, 1, 0, bias=False)]
+        #encoder += [nn.Conv2d(8 * ngf, nz, 4, 1, 0, bias=False)]
 
         #(8 * ndf, 1, 1)
 
@@ -182,17 +195,17 @@ class G_Stage2(nn.Module):
 
         decoder = []
 
-        for i in range(3):
-            decoder += [ResnetBlockBasic(nz, nz)]
+        #for i in range(3):
+        #    decoder += [ResnetBlockBasic(nz, nz)]
 
-        decoder += [DeconvBlock(nz, ngf * 8, 4, 1, 0)]
+        #decoder += [DeconvBlock(nz, ngf * 8, 4, 1, 0)]
 
         #for i in range(3):
         #    decoder += [ResnetBlockBasic(ngf * 8, ngf * 8)]
 
 
         # (ngf * 8, 4, 4)
-        decoder += [DeconvBlock(8  * ngf, 4 * ngf, 4, 2, 1)]
+        #decoder += [DeconvBlock(8  * ngf, 4 * ngf, 4, 2, 1)]
         
         # (ngf * 4, 8, 8)
 
@@ -218,10 +231,10 @@ class G_Stage2(nn.Module):
         self.decoder = nn.Sequential(*decoder)
 
     def forward(self, x):
-        z = self.encoder(x).squeeze()
-        z = self.relu(self.fc(z))
-        
-        out = self.decoder(x)
+        z = self.encoder(x)
+        #z = self.fc(z)
+        #z = z.unsqueeze(2).unsqueeze(2)
+        out = self.decoder(z)
 
         return out
 
@@ -295,7 +308,42 @@ class D_Stage2(nn.Module):
         #(8 * ndf, 4, 4)
         layers += [nn.Conv2d(8 * ndf, 1, 4, 1, 0, bias=False)]
         
-        layers += [nn.Sigmoid()]
+        #layers += [nn.Sigmoid()]
+
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        output = self.layers(x)
+        return output.squeeze()
+
+
+class D_Stage2_4x4(nn.Module):
+    def __init__(self, nc=3, ndf=64):
+        super(D_Stage2_4x4, self).__init__()
+
+        layers = []
+
+        #(nc, 128, 128)
+        layers += [nn.Sequential(nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+                                 nn.LeakyReLU(0.2, True))]
+        
+        #(ndf, 64, 64)
+        layers += [convBlock(ndf, 2 * ndf, 4, 2, 1)]
+
+        #(2 * ndf, 32, 32)
+        layers += [convBlock(2 * ndf, 4 * ndf, 4, 2, 1)]
+
+        #(4 * ndf, 16, 16)
+        #layers += [convBlock(4 * ndf, 4 * ndf, 4, 2, 1)]
+        layers += [convBlock(4 * ndf, 8 * ndf, 4, 2, 1)]
+        
+        #(8 * ndf, 8, 8)
+        layers += [convBlock(8 * ndf, 1, 4, 2, 1)]
+        
+        #(1, 4, 4)
+        #layers += [nn.Conv2d(4 * ndf, 1, 4, 1, 0, bias=False)]
+        
+        #layers += [nn.Sigmoid()]
 
         self.layers = nn.Sequential(*layers)
 
