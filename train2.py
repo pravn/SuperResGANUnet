@@ -21,15 +21,13 @@ def plot_loss(loss_array,name):
     plt.savefig('loss_'+name)
 
 
-def run_trainer2(train_loader, G2, D2, D2_4x4, args):
+def run_trainer2(train_loader, G2, D2, args):
     from train_stage2 import run_stage2_trainer
-    optimizer_G2 = optim.Adam(G2.parameters(), lr=args.lr, betas=(args.beta1,0.999))
+    optimizer_G2 = optim.Adam(G2.parameters(), lr=0.0002, betas=(args.beta1,0.999))
     G2_scheduler = StepLR(optimizer_G2, step_size=1000, gamma=1.0)
     
-    optimizer_D2 = optim.Adam(D2.parameters(), lr=args.lr, betas=(args.beta1,0.999))
+    optimizer_D2 = optim.Adam(D2.parameters(), lr=0.00005, betas=(args.beta1,0.999))
     D2_scheduler = StepLR(optimizer_D2, step_size=1000, gamma=1.0)
 
-    optimizer_D2_4x4 = optim.Adam(D2_4x4.parameters(), lr=args.lr, betas=(args.beta1,0.999))
-
-    run_stage2_trainer(train_loader, G2, D2, D2_4x4, optimizer_G2, optimizer_D2, optimizer_D2_4x4,
+    run_stage2_trainer(train_loader, G2, D2, optimizer_G2, optimizer_D2,
                        args)
