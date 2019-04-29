@@ -22,7 +22,7 @@ Modifications to improve GAN training: Replace the generator loss with a feature
 
 
 \begin{equation}
-G_{adv} = || E_{x\sim real} D(x) - E_{x\sim fake} D(x)||_2   
+G_{adv} = || E_{x\sim real} D(real_features) - E_{x\sim fake} D(fake_features)||_2   
 \end{equation}
 
 I plan to include other components from the Salimans paper in due season. These include, notably, feature matching (already noted above), mini batch discrimination, which seems to be particularly emphasized, and the idea of using a replay buffer/historical averaging for the discriminator, so as to reduce instability as might arise when the parameters/data for the discriminator get updated more rapidly than stable training might admit. 
