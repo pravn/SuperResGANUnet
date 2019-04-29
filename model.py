@@ -256,6 +256,8 @@ class UnetGenerator(nn.Module):
         super(UnetGenerator, self).__init__()
         # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)  # add the innermost layer
+        #unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer,innermost_bogus=True)
+
         for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
             unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout)
         # gradually reduce the number of filters from ngf * 8 to ngf
@@ -298,6 +300,8 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4,
                              stride=2, padding=1, bias=use_bias)
+        downconv_bogus = nn.Conv2d(input_nc, inner_nc, kernel_size=3,
+                                   stride=0,padding=1,bias=use_bias)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
@@ -307,8 +311,15 @@ class UnetSkipConnectionBlock(nn.Module):
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
                                         kernel_size=4, stride=2,
                                         padding=1)
+            #upconv = [upconv]+[upnorm]+[uprelu]+[nn.ConvTranspose2d(outer_nc, 3, 
+            #                                        kernel_size=4,stride=2,
+            #                                        padding=1)]
+
+            upconv_final = nn.ConvTranspose2d(outer_nc, input_nc, kernel_size=4,
+                                              stride=2, padding=1)
+            
             down = [downconv]
-            up = [uprelu, upconv, nn.Tanh()]
+            up = [uprelu, upconv, upnorm, upconv_final, nn.Tanh()]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
@@ -317,6 +328,15 @@ class UnetSkipConnectionBlock(nn.Module):
             down = [downrelu, downconv]
             up = [uprelu, upconv, upnorm]
             model = down + up
+
+        elif innermost_bogus:
+            upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
+                                        kernel_size=4, stride=2,
+                                        padding=1, bias=use_bias)
+            down = [downrelu, downconv_bogus]
+            up = [uprelu, upconv, upnorm]
+            model = down + up
+
         else:
             upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc,
                                         kernel_size=4, stride=2,
@@ -405,7 +425,7 @@ class D_Stage2(nn.Module):
        
         #(8 * ndf, 4, 4)
         layers1 += [nn.Conv2d(8 * ndf, 1, 4, 1, 0, bias=False)]
-        layers1 += [nn.Sigmoid()]
+        #layers1 += [nn.Sigmoid()]
 
         self.layers = nn.Sequential(*layers)
         self.layers1 = nn.Sequential(*layers1)

@@ -62,7 +62,7 @@ def run_stage2_trainer(train_loader, G2, D2, optimizer_G2, optimizer_D2,
             tgt = Variable(tgt)
             tgt = tgt.cuda()
             
-            label = torch.full((batch_size,), real_label, device=device)
+            label = torch.full((batch_size,5,5), real_label, device=device)
 
             for p in G2.parameters():
                 p.requires_grad = True
