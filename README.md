@@ -25,7 +25,7 @@ Modifications to improve GAN training: Replace the generator loss with a feature
 G_{adv} = || E_{x\sim real} D(real_features) - E_{x\sim fake} D(fake_features)||_2   
 \end{equation}
 
-The correct way to reproduce the fidelity of the target image's content might be to use the learned loss as in the VAEGAN paper - L2(D(real_features)-D(fake_features)). Nevertheless, if we use a general GAN term as above, we should simply get some sort of GAN art. 
+The correct way to reproduce with fidelity the target image's content might be to use the learned loss as in the VAEGAN paper - L2(D(real_features)-D(fake_features)). Nevertheless, if we use a general GAN term as above, we should simply get some sort of GAN art. 
 
 I plan to include other components from the Salimans paper in due season. These include, notably, feature matching (already noted above), mini batch discrimination, which seems to be particularly emphasized, and the idea of using a replay buffer/historical averaging for the discriminator, so as to reduce instability as might arise when the parameters/data for the discriminator get updated more rapidly than stable training might admit. 
 
