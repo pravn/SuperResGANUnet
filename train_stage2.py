@@ -84,11 +84,12 @@ def run_stage2_trainer(train_loader, G2, D2, optimizer_G2, optimizer_D2,
             D2_fake, feats_fake = D2(fake)
             D2_tgt, feats_tgt = D2(tgt)
 
-            exp_feats_fake = torch.mean(feats_fake, dim=0)
-            exp_feats_tgt = torch.mean(feats_tgt, dim=0)
+            #exp_feats_fake = torch.mean(feats_fake, dim=0)
+            #exp_feats_tgt = torch.mean(feats_tgt, dim=0)
 
             #G2_loss = criterion_MSE(exp_feats_fake, exp_feats_tgt)
-            G2_loss = 0.001*get_loss(exp_feats_fake, exp_feats_tgt)
+            #G2_loss = 0.001*get_loss(exp_feats_fake, exp_feats_tgt)
+            G2_loss = 0.01 * criterion_MSE(feats_fake, feats_tgt)
 
             #Supervised (L1) loss
             L1_loss = criterion_L1(fake, tgt)
